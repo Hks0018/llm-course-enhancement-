@@ -1,0 +1,32 @@
+{
+  "_meta": {
+    "description": "Registry of every skill the Universal Course Enhancement Engine can call. All skills are currently internal implementations under skills/<name>.py (Python module names use underscores; the 'skill' field below uses the canonical kebab-case name from the spec). See EXTERNAL_SKILLS_POLICY.md before adding any skill with source != 'internal'.",
+    "schema": {"skill": "kebab-case name", "source": "internal | external:<provider>", "enabled": "bool", "dependencies": "array of skill names"}
+  },
+  "skills": [
+    {"skill": "course-analysis", "source": "internal", "enabled": true, "dependencies": []},
+    {"skill": "pedagogy-analysis", "source": "internal", "enabled": true, "dependencies": ["course-analysis"]},
+    {"skill": "enhancement-decision", "source": "internal", "enabled": true, "dependencies": ["course-analysis"]},
+    {"skill": "flowchart-generation", "source": "internal", "enabled": true, "dependencies": ["mermaid-diagram-generation"]},
+    {"skill": "decision-tree-generation", "source": "internal", "enabled": true, "dependencies": ["mermaid-diagram-generation"]},
+    {"skill": "mermaid-diagram-generation", "source": "internal", "enabled": true, "dependencies": []},
+    {"skill": "mind-map-generation", "source": "internal", "enabled": true, "dependencies": ["mermaid-diagram-generation"]},
+    {"skill": "timeline-generation", "source": "internal", "enabled": true, "dependencies": ["mermaid-diagram-generation"]},
+    {"skill": "comparison-generation", "source": "internal", "enabled": true, "dependencies": []},
+    {"skill": "concept-diagram-generation", "source": "internal", "enabled": true, "dependencies": ["mermaid-diagram-generation"]},
+    {"skill": "interactive-learning-generation", "source": "internal", "enabled": true, "dependencies": []},
+    {"skill": "knowledge-check-generation", "source": "internal", "enabled": true, "dependencies": ["interactive-learning-generation"]},
+    {"skill": "scenario-generation", "source": "internal", "enabled": true, "dependencies": ["interactive-learning-generation"]},
+    {"skill": "summary-generation", "source": "internal", "enabled": true, "dependencies": []},
+    {"skill": "key-takeaway-generation", "source": "internal", "enabled": true, "dependencies": ["summary-generation"]},
+    {"skill": "example-generation", "source": "internal", "enabled": true, "dependencies": []},
+    {"skill": "case-study-generation", "source": "internal", "enabled": true, "dependencies": ["example-generation"]},
+    {"skill": "video-script-generation", "source": "internal", "enabled": true, "dependencies": ["scene-generation"]},
+    {"skill": "whiteboard-video-generation", "source": "internal", "enabled": true, "dependencies": ["video-script-generation", "scene-generation"]},
+    {"skill": "scene-generation", "source": "internal", "enabled": true, "dependencies": []},
+    {"skill": "voiceover-generation", "source": "internal", "enabled": true, "dependencies": ["video-script-generation", "scene-generation"]},
+    {"skill": "cognitive-load-analysis", "source": "internal", "enabled": true, "dependencies": ["course-analysis"]},
+    {"skill": "quality-validation", "source": "internal", "enabled": true, "dependencies": []},
+    {"skill": "accessibility-review", "source": "internal", "enabled": true, "dependencies": ["quality-validation"]}
+  ]
+}

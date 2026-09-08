@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Course Enhancer</title>
+<style>
+  :root {
+    --bg: #f7f7f8;
+    --panel: #ffffff;
+    --border: #e2e2e6;
+    --text: #1c1c1f;
+    --muted: #6b6b73;
+    --accent: #2f6fed;
+    --accent-hover: #2559c4;
+    --error: #c0392b;
+    --ok: #1f8a4c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 48px 16px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    width: 100%;
+    max-width: 640px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); font-size: 14px; margin: 0 0 24px; }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 16px 0 6px; }
+  input[type="password"], input[type="file"], select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    background: var(--bg);
+  }
+  button {
+    margin-top: 20px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 11px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+  }
+  button:hover { background: var(--accent-hover); }
+  button:disabled { background: #b7c6ef; cursor: default; }
+  .error { color: var(--error); font-size: 13px; margin-top: 12px; display: none; }
+  .hidden { display: none !important; }
+  .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .logout { background: none; border: none; color: var(--muted); font-size: 13px; width: auto; margin: 0; padding: 4px 0; text-decoration: underline; cursor: pointer; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+  .stat { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+  .stat .n { font-size: 22px; font-weight: 700; }
+  .stat .l { font-size: 12px; color: var(--muted); }
+  .download {
+    display: block;
+    text-align: center;
+    margin-top: 16px;
+    background: var(--ok);
+    color: white;
+    border-radius: 8px;
+    padding: 11px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .download:hover { opacity: 0.9; }
+  pre {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.5;
+    max-height: 320px;
+    overflow: auto;
+    white-space: pre-wrap;
+    margin-top: 16px;
+  }
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin-right: 8px;
+    vertical-align: -2px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="card" id="login-card">
+  <h1>Course Enhancer</h1>
+  <p class="subtitle">Enter the team password to continue.</p>
+  <label for="password">Password</label>
+  <input type="password" id="password" autocomplete="current-password" />
+  <button id="login-btn">Log in</button>
+  <p class="error" id="login-error"></p>
+</div>
+
+<div class="card hidden" id="app-card">
+  <div class="row">
+    <div>
+      <h1>Course Enhancer</h1>
+      <p class="subtitle" style="margin:0">Upload a course, get back enhancement assets + implementation requirements.</p>
+    </div>
+    <button class="logout" id="logout-btn">Log out</button>
+  </div>
+
+  <label for="file">Course file (HTML, Markdown, JSON, CSV, or plain text)</label>
+  <input type="file" id="file" accept=".html,.htm,.md,.markdown,.json,.csv,.txt" />
+
+  <label for="fmt">Format override (optional — auto-detected by default)</label>
+  <select id="fmt">
+    <option value="">Auto-detect</option>
+    <option value="html">HTML</option>
+    <option value="markdown">Markdown</option>
+    <option value="json">JSON</option>
+    <option value="csv">CSV</option>
+    <option value="text">Plain text</option>
+  </select>
+
+  <button id="run-btn">Run enhancement pipeline</button>
+  <p class="error" id="run-error"></p>
+
+  <div id="results" class="hidden">
+    <div class="stats">
+      <div class="stat"><div class="n" id="stat-lessons">-</div><div class="l">lessons / <span id="stat-modules">-</span> modules</div></div>
+      <div class="stat"><div class="n" id="stat-no-enh">-</div><div class="l">need no enhancement</div></div>
+      <div class="stat"><div class="n" id="stat-generated">-</div><div class="l">enhancements generated</div></div>
+      <div class="stat"><div class="n" id="stat-odoo">-</div><div class="l">Odoo module(s) recommended</div></div>
+    </div>
+    <a class="download" id="download-link" href="#">Download full course package (.zip)</a>
+    <pre id="report-text"></pre>
+  </div>
+</div>
+
+<script>
+  const loginCard = document.getElementById('login-card');
+  const appCard = document.getElementById('app-card');
+  const loginBtn = document.getElementById('login-btn');
+  const loginError = document.getElementById('login-error');
+  const passwordInput = document.getElementById('password');
+  const logoutBtn = document.getElementById('logout-btn');
+  const runBtn = document.getElementById('run-btn');
+  const runError = document.getElementById('run-error');
+  const fileInput = document.getElementById('file');
+  const fmtSelect = document.getElementById('fmt');
+  const results = document.getElementById('results');
+
+  function showApp() {
+    loginCard.classList.add('hidden');
+    appCard.classList.remove('hidden');
+  }
+  function showLogin(message) {
+    appCard.classList.add('hidden');
+    loginCard.classList.remove('hidden');
+    if (message) {
+      loginError.textContent = message;
+      loginError.style.display = 'block';
+    }
+  }
+
+  async function checkSession() {
+    const res = await fetch('/api/me');
+    if (res.ok) showApp(); else showLogin();
+  }
+
+  loginBtn.addEventListener('click', async () => {
+    loginError.style.display = 'none';
+    const body = new FormData();
+    body.append('password', passwordInput.value);
+    loginBtn.disabled = true;
+    try {
+      const res = await fetch('/api/login', { method: 'POST', body });
+      if (res.ok) {
+        passwordInput.value = '';
+        showApp();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        loginError.textContent = data.detail || 'Incorrect password';
+        loginError.style.display = 'block';
+      }
+    } finally {
+      loginBtn.disabled = false;
+    }
+  });
+
+  passwordInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') loginBtn.click();
+  });
+
+  logoutBtn.addEventListener('click', async () => {
+    await fetch('/api/logout', { method: 'POST' });
+    showLogin();
+  });
+
+  runBtn.addEventListener('click', async () => {
+    runError.style.display = 'none';
+    results.classList.add('hidden');
+    if (!fileInput.files.length) {
+      runError.textContent = 'Choose a course file first.';
+      runError.style.display = 'block';
+      return;
+    }
+    const body = new FormData();
+    body.append('file', fileInput.files[0]);
+    if (fmtSelect.value) body.append('fmt', fmtSelect.value);
+
+    runBtn.disabled = true;
+    runBtn.innerHTML = '<span class="spinner"></span>Running…';
+    try {
+      const res = await fetch('/api/run', { method: 'POST', body });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (res.status === 401) { showLogin('Session expired — log in again.'); return; }
+        runError.textContent = data.detail || 'Something went wrong.';
+        runError.style.display = 'block';
+        return;
+      }
+      document.getElementById('stat-lessons').textContent = data.total_lessons;
+      document.getElementById('stat-modules').textContent = data.total_modules;
+      document.getElementById('stat-no-enh').textContent = data.no_enhancement_count;
+      document.getElementById('stat-generated').textContent = data.enhancements_generated;
+      document.getElementById('stat-odoo').textContent = data.odoo_module_count;
+      document.getElementById('download-link').href = data.download_url;
+      document.getElementById('report-text').textContent = data.report_markdown || '';
+      results.classList.remove('hidden');
+    } catch (err) {
+      runError.textContent = 'Network error — please try again.';
+      runError.style.display = 'block';
+    } finally {
+      runBtn.disabled = false;
+      runBtn.textContent = 'Run enhancement pipeline';
+    }
+  });
+
+  checkSession();
+</script>
+
+</body>
+</html>
