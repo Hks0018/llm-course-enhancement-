@@ -452,10 +452,114 @@ def _parse_html_by_containers(html: str, title_hint: str = None):
     return schema.new_normalized_course(course, modules)
 
 
+_MODULE_LESSON_ID_RE = re.compile(r"\b([Mm]\d{1,3})[-_][Ll]\d{1,3}\b")
+
+
+def _extract_attr(tag_open: str, attr: str) -> str:
+    m = re.search(rf'{attr}\s*=\s*"([^"]*)"', tag_open) or re.search(rf"{attr}\s*=\s*'([^']*)'", tag_open)
+    return m.group(1) if m else ""
+
+
+def _find_module_label(html: str, module_key: str) -> str:
+    """Best-effort nicer module title: look for plain text like
+    'Module 1 · Funnel Foundations' or 'Module 1 - Foo' anywhere earlier in
+    the document (sidebar nav labels commonly carry this) and use whatever
+    follows 'Module N' up to the next tag. Falls back to 'Module N'."""
+    num_match = re.search(r"\d+", module_key)
+    if not num_match:
+        return f"Module {module_key}"
+    num = str(int(num_match.group(0)))  # "01" -> "1"
+    label_match = re.search(
+        rf"Module\s+{re.escape(num)}\b[\s·:\-—–]*([A-Za-z][^<\n]{{2,80}})", html
+    )
+    if label_match:
+        return re.sub(r"\s+", " ", label_match.group(1)).strip().rstrip(".")
+    return f"Module {num}"
+
+
+def _parse_html_by_repeated_h1_sections(html: str, title_hint: str = None):
+    """Alternate HTML extraction for single-page 'lesson screen' style course
+    exports (common for interactive/JS-driven course viewers): no <article>
+    tags at all, but each real lesson is its own top-level <section>, headed
+    by its OWN <h1> (repeated once per lesson) - with <h2>/<h3>/<h4> inside
+    used purely as in-lesson typographic sub-structure (concept/example/
+    quiz/reflection headers), not document outline. The naive heading-depth
+    parser below has no way to tell those apart from real module/lesson
+    boundaries and mis-splits one section into a dozen bogus lessons while
+    silently discarding every per-lesson <h1> (only the very first h1 in the
+    whole document is ever used) - this path detects that shape first.
+
+    Returns None (fall back to the heading-based parser) unless there are at
+    least 2 top-level <section> elements, each starting with an <h1> near
+    its top.
+    """
+    section_spans = _find_top_level_spans(html, "section")
+    if len(section_spans) < 2:
+        return None
+
+    candidates = []
+    for start, end in section_spans:
+        fragment = html[start:end]
+        h1_match = re.search(r"<h1\b[^>]*>(.*?)</h1>", fragment, re.I | re.S)
+        if not h1_match or h1_match.start() > 400:
+            return None  # this shape doesn't hold uniformly - bail out
+        open_tag_match = re.match(r"<section\b[^>]*>", fragment, re.I)
+        section_id = _extract_attr(open_tag_match.group(0), "id") if open_tag_match else ""
+        title = re.sub(r"\s+", " ", _strip_html_to_text(h1_match.group(1))).strip()
+        remaining = fragment[: h1_match.start()] + fragment[h1_match.end():]
+        candidates.append({"id": section_id, "title": title, "content": _strip_html_to_text(remaining)})
+
+    if not candidates:
+        return None
+
+    # The first section is course-level front matter (a cover/hero screen)
+    # when its id doesn't match the module/lesson id convention the rest
+    # share - e.g. id="screen-cover" vs id="screen-M01-L01".
+    lesson_candidates = candidates
+    course_title = title_hint or "Untitled Course"
+    course_description = ""
+    if not _MODULE_LESSON_ID_RE.search(candidates[0]["id"]) and any(
+        _MODULE_LESSON_ID_RE.search(c["id"]) for c in candidates[1:]
+    ):
+        course_title = candidates[0]["title"] or course_title
+        # The "cover" section is often a full landing page (curriculum
+        # preview, instructor bio, closing CTA) - keep only the first couple
+        # of real sentences as the description, after dropping short nav/CTA
+        # labels ("Start Module 1", "See the Curriculum") that survive
+        # text-stripping alongside them.
+        real_lines = [line for line in candidates[0]["content"].splitlines() if len(line.split()) >= 4]
+        course_description = "\n".join(real_lines[:2])
+        lesson_candidates = candidates[1:]
+
+    if not lesson_candidates:
+        return None
+
+    course = schema.new_course(course_title, course_description)
+    modules_by_key = {}
+    ordered_keys = []
+    for c in lesson_candidates:
+        m = _MODULE_LESSON_ID_RE.search(c["id"])
+        key = m.group(1) if m else "__default__"
+        if key not in modules_by_key:
+            ordered_keys.append(key)
+            module_title = _find_module_label(html, key) if key != "__default__" else "Module 1"
+            modules_by_key[key] = schema.new_module(None, module_title)
+        modules_by_key[key]["lessons"].append(schema.new_lesson(None, c["title"] or "Lesson", c["content"]))
+
+    modules = [modules_by_key[k] for k in ordered_keys]
+    if not modules:
+        return None
+    return schema.new_normalized_course(course, modules)
+
+
 def parse_html(text: str, title_hint: str = None) -> dict:
     container_result = _parse_html_by_containers(text, title_hint)
     if container_result is not None:
         return container_result
+
+    repeated_h1_result = _parse_html_by_repeated_h1_sections(text, title_hint)
+    if repeated_h1_result is not None:
+        return repeated_h1_result
 
     p = _CourseHTMLParser()
     p.feed(text)
