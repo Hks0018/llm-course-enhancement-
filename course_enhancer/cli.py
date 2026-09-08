@@ -40,6 +40,8 @@ def main(argv=None) -> int:
     print(f"  {len(built['all_accepted'])} enhancements generated, {len(built['all_rejected'])} suppressed")
     print(f"  {len(result['odoo_requirements']['modules'])} recommended Odoo module(s)")
     print(f"Output written to: {result['course_dir']}/")
+    print(f"  Enhanced course: {result['enhanced_course_path']}")
+    print(f"  Odoo requirements: {result['odoo_requirements_report_path']}")
     return 0
 
 

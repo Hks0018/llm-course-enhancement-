@@ -151,7 +151,8 @@
       <div class="stat"><div class="n" id="stat-generated">-</div><div class="l">enhancements generated</div></div>
       <div class="stat"><div class="n" id="stat-odoo">-</div><div class="l">Odoo module(s) recommended</div></div>
     </div>
-    <a class="download" id="download-link" href="#">Download full course package (.zip)</a>
+    <a class="download" id="course-download-link" href="#">Download enhanced course</a>
+    <a class="download" id="requirements-download-link" href="#" style="background: var(--accent); margin-top: 10px;">Download Odoo implementation requirements</a>
     <pre id="report-text"></pre>
   </div>
 </div>
@@ -244,8 +245,9 @@
       document.getElementById('stat-no-enh').textContent = data.no_enhancement_count;
       document.getElementById('stat-generated').textContent = data.enhancements_generated;
       document.getElementById('stat-odoo').textContent = data.odoo_module_count;
-      document.getElementById('download-link').href = data.download_url;
-      document.getElementById('report-text').textContent = data.report_markdown || '';
+      document.getElementById('course-download-link').href = data.course_download_url;
+      document.getElementById('requirements-download-link').href = data.requirements_download_url;
+      document.getElementById('report-text').textContent = data.preview_text || '';
       results.classList.remove('hidden');
     } catch (err) {
       runError.textContent = 'Network error — please try again.';

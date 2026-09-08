@@ -137,17 +137,22 @@ async def run_pipeline(
         shutil.rmtree(run_dir, ignore_errors=True)
         raise HTTPException(status_code=400, detail=str(exc))
 
-    course_dir = result["course_dir"]
-    zip_base = os.path.join(run_dir, "course-package")
-    shutil.make_archive(zip_base, "zip", course_dir)
-
     built = result["built"]
     analysis = built["course_analysis"]
-    report_path = os.path.join(course_dir, "reports", "COURSE_ENHANCEMENT_REPORT.md")
-    report_text = ""
-    if os.path.isfile(report_path):
-        with open(report_path, "r", encoding="utf-8") as f:
-            report_text = f.read()
+
+    enhanced_course_path = result["enhanced_course_path"]
+    requirements_path = result["odoo_requirements_report_path"]
+    course_filename = f"enhanced-course.{enhanced_course_path.rsplit('.', 1)[-1]}"
+
+    # Flatten the two deliverables to fixed, predictable names directly under
+    # run_dir so /api/download doesn't need to know about course_dir/slug.
+    flat_course_path = os.path.join(run_dir, course_filename)
+    flat_requirements_path = os.path.join(run_dir, "odoo-implementation-requirements.md")
+    shutil.copyfile(enhanced_course_path, flat_course_path)
+    shutil.copyfile(requirements_path, flat_requirements_path)
+
+    with open(enhanced_course_path, "r", encoding="utf-8") as f:
+        preview_text = f.read()
 
     return JSONResponse(
         {
@@ -159,20 +164,39 @@ async def run_pipeline(
             "enhancements_generated": len(built["all_accepted"]),
             "enhancements_suppressed": len(built["all_rejected"]),
             "odoo_module_count": len(result["odoo_requirements"]["modules"]),
-            "report_markdown": report_text,
-            "download_url": f"/api/download/{run_id}",
+            "preview_text": preview_text,
+            "course_filename": course_filename,
+            "course_download_url": f"/api/download/{run_id}/course",
+            "requirements_download_url": f"/api/download/{run_id}/requirements",
         }
     )
 
 
-@app.get("/api/download/{run_id}")
-def download(run_id: str, _: None = Depends(require_auth)) -> FileResponse:
-    if not run_id.isalnum():
-        raise HTTPException(status_code=400, detail="Invalid run id")
-    zip_path = os.path.join(RUNS_ROOT, run_id, "course-package.zip")
-    if not os.path.isfile(zip_path):
+_DOWNLOAD_KINDS = {
+    "course": ("enhanced-course", None),  # filename resolved by glob (extension varies)
+    "requirements": ("odoo-implementation-requirements.md", "text/markdown"),
+}
+
+
+@app.get("/api/download/{run_id}/{kind}")
+def download(run_id: str, kind: str, _: None = Depends(require_auth)) -> FileResponse:
+    if not run_id.isalnum() or kind not in _DOWNLOAD_KINDS:
+        raise HTTPException(status_code=400, detail="Invalid download request")
+    run_dir = os.path.join(RUNS_ROOT, run_id)
+
+    if kind == "requirements":
+        path = os.path.join(run_dir, "odoo-implementation-requirements.md")
+        if not os.path.isfile(path):
+            raise HTTPException(status_code=404, detail="Run not found or expired")
+        return FileResponse(path, media_type="text/markdown", filename="odoo-implementation-requirements.md")
+
+    matches = [f for f in os.listdir(run_dir)] if os.path.isdir(run_dir) else []
+    course_files = [f for f in matches if f.startswith("enhanced-course.")]
+    if not course_files:
         raise HTTPException(status_code=404, detail="Run not found or expired")
-    return FileResponse(zip_path, media_type="application/zip", filename=f"course-package-{run_id[:8]}.zip")
+    filename = course_files[0]
+    media_type = "text/html" if filename.endswith(".html") else "text/markdown"
+    return FileResponse(os.path.join(run_dir, filename), media_type=media_type, filename=filename)
 
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import os
 
-from course_enhancer import normalize, package_builder, requirements_engine, reports
+from course_enhancer import normalize, package_builder, requirements_engine, reports, integrator
 from course_enhancer.schema import validate_course, slugify
 
 
@@ -67,6 +67,14 @@ def run(source: str, output_root: str = "output", fmt: str = None, course_slug: 
         reports.render_quality_report(built),
     )
 
+    # --- single-document deliverables (original content + enhancements
+    #     merged inline, same format as the input; and the Odoo requirements
+    #     report standalone) - the two files most callers actually want ---
+    enhanced_course_text, enhanced_course_ext = integrator.render_enhanced_course(normalized, built)
+    enhanced_course_path = os.path.join(course_dir, f"enhanced-course.{enhanced_course_ext}")
+    _write_text(enhanced_course_path, enhanced_course_text)
+    odoo_requirements_report_path = os.path.join(course_dir, "reports", "ODOO_IMPLEMENTATION_REQUIREMENTS.md")
+
     # --- assets/ (diagram sources, mind maps, video/voiceover packages as
     #     individual files - convenient for a downstream renderer to consume
     #     one file per asset instead of parsing the whole package) ---
@@ -100,4 +108,6 @@ def run(source: str, output_root: str = "output", fmt: str = None, course_slug: 
         "odoo_requirements": odoo_requirements,
         "lms_capabilities": lms_capabilities,
         "dependency_graph": dependency_graph,
+        "enhanced_course_path": enhanced_course_path,
+        "odoo_requirements_report_path": odoo_requirements_report_path,
     }
